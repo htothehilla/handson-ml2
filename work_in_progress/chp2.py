@@ -2,9 +2,16 @@ import os
 import tarfile
 import urllib
 
+
+import os
+os.chdir('/Users/xxx/PycharmProjects/handson-ml2/datasets')
+cwd = os.getcwd()
+
+#downloading dataset
 DOWNLOAD_ROOT = "https://raw.githubusercontent.com/ageron/handson-ml2/master/"
-HOUSING_PATH = os.path.join("datasets", "housing")
+HOUSING_PATH = os.path.join(cwd, "housing")
 HOUSING_URL = DOWNLOAD_ROOT + "datasets/housing/housing.tgz"
+
 
 def fetch_housing_data(housing_url=HOUSING_URL, housing_path=HOUSING_PATH):
     os.makedirs(housing_path, exist_ok=True)
@@ -30,7 +37,7 @@ housing.info()
 housing.describe()
 #summary stats e.g mean and stuff
 
-#histogram
+#histogram - bins (int or sequence or str, optional)
 import matplotlib.pyplot as plt
 housing.hist(bins=50, figsize=(20,15))
 plt.show()
@@ -38,6 +45,7 @@ plt.show()
 #create a test set
 import numpy as np
 
+#creates test set
 def split_train_test(data, test_ratio):
     shuffled_indices = np.random.permutation(len(data))
     test_set_size = int(len(data) * test_ratio)
@@ -67,15 +75,18 @@ def split_train_test_by_id(data, test_ratio, id_column):
 housing_with_id = housing.reset_index()   # adds an `index` column
 train_set, test_set = split_train_test_by_id(housing_with_id, 0.2, "index")
 
+#test set doesn't have id, so they uses houses longitudinal and latitude
+
 housing_with_id["id"] = housing["longitude"] * 1000 + housing["latitude"]
 train_set, test_set = split_train_test_by_id(housing_with_id, 0.2, "id")
 
 #spliting dataset
+# features -. set random generator seed + mulitiple datasets with an identical number of rows
 from sklearn.model_selection import train_test_split
 
 train_set, test_set = train_test_split(housing, test_size=0.2, random_state=42)
 
-#checking if representative, creating continous attribute to a income catgeory
+#checking if representative (create hist, creating continous attribute to a income catgeory
 # five labels for each variable
 housing["income_cat"] = pd.cut(housing["median_income"],
                                bins=[0., 1.5, 3.0, 4.5, 6., np.inf],
@@ -83,7 +94,7 @@ housing["income_cat"] = pd.cut(housing["median_income"],
 
 housing["income_cat"].hist()
 
-#stratified sampling based
+#stratified sampling based - reflect population
 from sklearn.model_selection import StratifiedShuffleSplit
 
 split = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
@@ -91,7 +102,10 @@ for train_index, test_index in split.split(housing, housing["income_cat"]):
     strat_train_set = housing.loc[train_index]
     strat_test_set = housing.loc[test_index]
 
+#shows you that it has SS worked by looking like a variable
+
 strat_test_set["income_cat"].value_counts() / len(strat_test_set)
+
 
 #remove the income_cat attribute so the data is back to its original state:
 
@@ -100,6 +114,9 @@ for set_ in (strat_train_set, strat_test_set):
 
 #put training set to aside
 housing = strat_train_set.copy()
+
+
+##Discover (if data is big you can do a exploration set)
 
 #visulaising training set, alpha makes it more visible
 #s = population and c = colour of median house prices
@@ -110,14 +127,20 @@ housing.plot(kind="scatter",x="longitude",y="latitude", alpha=0.1,
 plt.legend()
 
 #looking for correlations
+#only measures linear relationships
 corr_matrix = housing.corr()
 corr_matrix["median_house_value"].sort_values(ascending=False)
+
+#map correlations  by plotting every numerical attribute
+
 
 from pandas.plotting import scatter_matrix
 attributes = ["median_house_value","median_income","total_rooms","housing_median_age"]
 scatter_matrix(housing[attributes],figsize=(12,8))
 
 #zoom in on median income
+#correlation strong (upward trend but plot reveals certain quirks and you don't want algorthim to repeat it
+
 housing.plot(kind="scatter",x="median_income",y="median_house_value",alpha=0.1)
 
 #checking out new attributes
@@ -126,7 +149,43 @@ housing["bedrooms_per_room"] = housing["total_bedrooms"]/housing["total_rooms"]
 housing["population_per_household"]=housing["population"]/housing["households"]
 
 #correlation matrix
+
 corr_matrix =housing.corr()
 corr_matrix["median_house_value"].sort_values(ascending=False)
 
+#preparing data _> make functions
+
+#revet to clean training set -> making a copy of training set _>
+# removing lavels as you don;t want to apply same transformations to the predictors
+housing = strat_train_set.drop("median_house_value",axis=1)
+housing_labels = strat_train_set["median_house_value"].copy()
+
+#data cleaning
+#choose option 1
+housing.dropna(subset=["total_bedrooms"])
+
+#missing values
+
+from sklearn.impute import SimpleImputer
+imputer = SimpleImputer(strategy="median")
+
+#median can only be computed with numbers need to create a
+#copy of the data without text attribute for ocean_proximity
+
+housing_num = housing.drop("ocean_proximity",axis=1)
+
 #
+imputer.fit(housing_num)
+#the imputer  computed a median of each attribute
+# and stored the resukt in its stats intance variable
+# safe to also add imputer on other variables
+
+imputer.statistics_
+housing_num.median().values
+
+#replacing missing values with learned medians
+x=imputer.transform(housing_num)
+
+housing_tr = pd.DataFrame(x, columns=housing_num.columns,index=housing_num.index)
+
+housing_ca
